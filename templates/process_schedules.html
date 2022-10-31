@@ -1,0 +1,144 @@
+<script src="../static/js/daypilot-all.min.js"></script>
+
+<div style="display: flex">
+  <!--Button that sends post request-->
+  <form action="" method="post">
+    <input type="submit" value="Process Schedules" />
+  </form>
+  <input id="previous" type="submit" value="Previous" />
+  <input id="next" type="submit" value="Next" />
+  <h1>Score: ‎</h1>
+  <h1 id="score"></h1>
+</div>
+
+<div id="dp"></div>
+
+<script type="text/javascript">
+    index = window.location.href.substring(window.location.href.lastIndexOf("/") + 1);
+    document.getElementById("next").onclick = function () {
+      window.location = window.location.href.slice(0, (window.location.href).length - index.length) + (parseInt(index) + 1).toString();
+    };
+
+    document.getElementById("previous").onclick = function () {
+      window.location = window.location.href.slice(0, (window.location.href).length - index.length) + (parseInt(index) - 1).toString();
+    };
+
+  const dp = new DayPilot.Calendar("dp", {
+    viewType: "Week",
+    startDate: "2022-03-21",
+    headerDateFormat: "dddd",
+    onEventClick: async (args) => {
+      const colors = [
+        { name: "Blue", id: "#3c78d8" },
+        { name: "Green", id: "#6aa84f" },
+        { name: "Yellow", id: "#f1c232" },
+        { name: "Red", id: "#cc0000" },
+      ];
+
+      const form = [
+        { name: "Text", id: "text" },
+        { name: "Start", id: "start", type: "datetime" },
+        { name: "End", id: "end", type: "datetime" },
+        { name: "Color", id: "barColor", type: "select", options: colors },
+      ];
+
+      const modal = await DayPilot.Modal.form(form, args.e.data);
+
+      if (modal.canceled) {
+        return;
+      }
+
+      dp.events.update(modal.result);
+    },
+    onBeforeEventRender: (args) => {
+      args.data.barBackColor = "transparent";
+      if (!args.data.barColor) {
+        args.data.barColor = "#333";
+      }
+    },
+    onTimeRangeSelected: async (args) => {
+      const form = [{ name: "Name", id: "text" }];
+
+      const data = {
+        text: "Event",
+      };
+
+      const modal = await DayPilot.Modal.form(form, data);
+
+      dp.clearSelection();
+
+      if (modal.canceled) {
+        return;
+      }
+
+      dp.events.add({
+        start: args.start,
+        end: args.end,
+        id: DayPilot.guid(),
+        text: modal.result.text,
+        barColor: "#3c78d8",
+      });
+    },
+    onHeaderClick: (args) => {
+      console.log("args", args);
+    },
+  });
+
+  dp.init();
+
+  const events = [];
+
+  fetch("../static/schedules.json")
+    .then((res) => res.json())
+    .then((out) => {
+      console.log("Output: ", out[0]);
+      document.getElementById("score").innerHTML = out[parseInt(index) - 1].score;
+      days = ["M", "T", "W", "R", "F"];
+      days.forEach((day) => {
+        out[parseInt(index) - 1].sections.forEach((section) => {
+          if (section.days.includes(day)) {
+            startDate = "2022-03-21";
+            date = startDate
+              .slice(0, -1)
+              .concat((days.indexOf(day) + 1).toString());
+            console.log("start: " + date +
+                "T" +
+                section.start.toString().slice(0, 2) +
+                ":" +
+                section.start.toString().slice(2) +
+                ":00")
+
+            console.log("end: " + date +
+                "T" +
+                section.end.toString().slice(0, 2) +
+                ":" +
+                section.end.toString().slice(2) +
+                ":00")
+            dp.events.add({
+              // convert start and end to ISO 8601
+              // append proper date based on start of week
+              start:
+                date +
+                "T" +
+                section.start.toString().slice(0, 2) +
+                ":" +
+                section.start.toString().slice(2) +
+                ":00",
+              end:
+                date +
+                "T" +
+                section.end.toString().slice(0, 2) +
+                ":" +
+                section.end.toString().slice(2) +
+                ":00",
+              id: 0,
+              text: section.name,
+              barColor: "#3c78d8",
+            });
+          }
+        });
+      });
+    })
+    .catch((err) => console.error(err));
+  dp.update({ events });
+</script>
